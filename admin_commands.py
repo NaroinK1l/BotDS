@@ -4,6 +4,7 @@ import discord
 import subprocess
 from discord import app_commands
 import database
+import asyncio  # Добавляем этот импорт
 
 def setup_admin_commands(client):
     @client.tree.command(name="restart", description="Перезапуск бота", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
@@ -111,67 +112,69 @@ def setup_admin_commands(client):
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
-    @client.tree.command(name="xp", description="Изменение опыта или уровня пользователя", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
-    @app_commands.describe(type="op для опыта или level для уровня", action="add, remove, set", user="Выберите участника", amount="Количество")
-    @app_commands.choices(type=[
+    @client.tree.command(name="hp", description="Установка даты рождения для пользователя", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    @app_commands.describe(user="Выберите участника", birthday="Дата рождения (в формате ГГГГ-ММ-ДД)")
+    async def hp(interaction: discord.Interaction, user: discord.Member, birthday: str):
+        if interaction.user.guild_permissions.administrator:
+            database.update_birthday(user.id, birthday)
+            await interaction.response.send_message(f"Updated birthday for {user.mention} to {birthday}.", ephemeral=True)
+        else:
+            await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
+
+    @client.tree.command(name="hp_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    @app_commands.describe(channel="Выберите канал")
+    async def hp_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+        if interaction.user.guild_permissions.administrator:
+            database.update_birthday_channel(channel.id)
+            await interaction.response.send_message(f"Updated birthday channel to {channel.mention}.", ephemeral=True)
+        else:
+            await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
+
+    @client.tree.command(name="xp", description="Управление опытом и уровнями", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    @app_commands.describe(action="Выберите действие: op или level", method="Выберите метод: add, remove, set", user="Выберите участника", amount="Количество")
+    @app_commands.choices(action=[
         app_commands.Choice(name="op", value="op"),
         app_commands.Choice(name="level", value="level")
-    ])
-    @app_commands.choices(action=[
+    ], method=[
         app_commands.Choice(name="add", value="add"),
         app_commands.Choice(name="remove", value="remove"),
         app_commands.Choice(name="set", value="set")
     ])
-    async def xp(interaction: discord.Interaction, type: str, action: str, user: discord.Member, amount: int):
+    async def xp(interaction: discord.Interaction, action: str, method: str, user: discord.Member, amount: int):
         if interaction.user.guild_permissions.administrator:
             user_id = user.id
-            if type == "op":
+            if action == "op":
                 current_exp = database.get_user_exp(user_id)
-                if action == "add":
+                if method == "add":
                     new_exp = current_exp + amount
-                    database.update_user_exp(user_id, new_exp)
-                    client.exp[user_id] = new_exp
-                    client.check_level_up(user_id)
-                    await interaction.response.send_message(f"Added {amount} experience points to {user.mention}. They now have {new_exp} experience points.", ephemeral=True)
-                elif action == "remove":
+                elif method == "remove":
                     new_exp = max(0, current_exp - amount)
-                    database.update_user_exp(user_id, new_exp)
-                    client.exp[user_id] = new_exp
-                    client.check_level_up(user_id)
-                    await interaction.response.send_message(f"Removed {amount} experience points from {user.mention}. They now have {new_exp} experience points.", ephemeral=True)
-                elif action == "set":
-                    database.update_user_exp(user_id, amount)
-                    client.exp[user_id] = amount
-                    client.check_level_up(user_id)
-                    await interaction.response.send_message(f"Set {user.mention}'s experience points to {amount}.", ephemeral=True)
-                else:
-                    await interaction.response.send_message("Invalid action. Please use 'add', 'remove', or 'set'.", ephemeral=True)
-            elif type == "level":
+                elif method == "set":
+                    new_exp = amount
+                database.update_user_exp(user_id, new_exp)
+                await interaction.response.send_message(f"Updated experience for {user.mention} to {new_exp}.", ephemeral=True)
+            elif action == "level":
                 current_level = database.get_user_level(user_id)
-                if action == "add":
+                if method == "add":
                     new_level = current_level + amount
-                    database.update_user_level(user_id, new_level)
-                    client.levels[user_id] = new_level
-                    await interaction.response.send_message(f"Added {amount} levels to {user.mention}. They are now level {new_level}.", ephemeral=True)
-                elif action == "remove":
+                elif method == "remove":
                     new_level = max(0, current_level - amount)
-                    database.update_user_level(user_id, new_level)
-                    client.levels[user_id] = new_level
-                    await interaction.response.send_message(f"Removed {amount} levels from {user.mention}. They are now level {new_level}.", ephemeral=True)
-                elif action == "set":
-                    database.update_user_level(user_id, amount)
-                    client.levels[user_id] = amount
-                    await interaction.response.send_message(f"Set {user.mention}'s level to {amount}.", ephemeral=True)
-                else:
-                    await interaction.response.send_message("Invalid action. Please use 'add', 'remove', or 'set'.", ephemeral=True)
-            else:
-                await interaction.response.send_message("Invalid type. Please use 'op' or 'level'.", ephemeral=True)
+                elif method == "set":
+                    new_level = amount
+                database.update_user_level(user_id, new_level)
+                await interaction.response.send_message(f"Updated level for {user.mention} to {new_level}.", ephemeral=True)
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
-    @client.tree.command(name="pid", description="Получить PID процесса бота", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
-    async def pid(interaction: discord.Interaction):
-        if interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message(f"PID процесса бота: {os.getpid()}", ephemeral=True)
-        else:
-            await interaction.response.send_message("У вас нет прав на использование этой команды.", ephemeral=True)
+def setup_user_commands(client):
+    # Здесь должен быть вызов функции настройки команд для пользователей
+    pass
+
+def setup_birthday_notification(client):
+    async def birthday_check():
+        await client.wait_until_ready()
+        while not client.is_closed():
+            # Вставьте здесь код проверки дня рождения
+            await asyncio.sleep(3600)  # Проверять каждый час
+
+    client.loop.create_task(birthday_check())

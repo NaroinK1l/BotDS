@@ -1,7 +1,7 @@
 import discord
 from discord import app_commands
 import database
-import os  # Добавляем импорт библиотеки os
+import os
 
 def setup_user_commands(client):
     @client.tree.command(name="user", description="Проверка статуса пользователя", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
@@ -15,6 +15,7 @@ def setup_user_commands(client):
         level = database.get_user_level(user_id)
         special_points = database.get_special_points(user_id)
         star = database.get_star(user_id)
+        birthday = database.get_birthday(user_id)
         
         exp_to_next_level = 300 - exp
         
@@ -23,6 +24,8 @@ def setup_user_commands(client):
         embed.add_field(name="Опыт", value=f"{exp} / 300", inline=False)
         embed.add_field(name="До следующего уровня", value=f"{exp_to_next_level}", inline=False)
         embed.add_field(name="Специальные баллы", value=f"{special_points}", inline=False)
+        if birthday:
+            embed.add_field(name="Дата рождения", value=birthday, inline=False)
         
         if star >= 1 and star <= 12:
             file_path = f"stars/{star}.png"
