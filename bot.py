@@ -5,7 +5,14 @@ import asyncio
 from discord.ext import tasks
 from discord import app_commands
 from dotenv import load_dotenv
-import database
+from database import database
+from database import exp
+from database import special_points
+from database import stars
+from database import birthday
+from database import settings
+from commands import admin_commands, user_commands
+import autosave
 
 # Загрузка токена и ID сервера из файла .env
 load_dotenv('token.env')
@@ -14,13 +21,18 @@ GUILD_ID = int(os.getenv('GUILD_ID'))
 
 # Инициализация базы данных
 database.initialize_db()
+exp.initialize_exp_db()
+special_points.initialize_bot_db()
+stars.initialize_bot_db()
+birthday.initialize_birthday_db()
 
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.tree = app_commands.CommandTree(self)
-        self.exp = {user_id: database.get_user_exp(user_id) for user_id in database.get_all_user_ids()}
-        self.levels = {user_id: database.get_user_level(user_id) for user_id in database.get_all_user_ids()}
+        self.exp = {user_id: exp.get_user_exp(user_id) for user_id in exp.get_all_user_ids()}
+        self.levels = {user_id: exp.get_user_level(user_id) for user_id in exp.get_all_user_ids()}
+        self.birthday = {user_id: birthday.get_birthday(user_id) for user_id in exp.get_all_user_ids()}
         self.channels_to_exclude = database.get_excluded_channels()
         self.roles_to_exclude = database.get_excluded_roles()
 
@@ -59,17 +71,18 @@ class MyClient(discord.Client):
         while self.exp[user_id] >= 300:
             self.exp[user_id] -= 300
             self.levels[user_id] = self.levels.get(user_id, 0) + 1
-            special_points = database.get_special_points(user_id)
-            special_points += 40
-            database.update_special_points(user_id, special_points)
-        database.update_user_exp(user_id, self.exp[user_id])
-        database.update_user_level(user_id, self.levels[user_id])
+            current_points = special_points.get_special_points(user_id)
+            special_points.update_special_points(user_id, current_points + 40)
+        exp.update_user_exp(user_id, self.exp[user_id])
+        exp.update_user_level(user_id, self.levels[user_id])
 
     async def close(self):
         print("Bot is shutting down...")
         for user_id in self.exp.keys():
-            database.update_user_exp(user_id, self.exp[user_id])
-            database.update_user_level(user_id, self.levels[user_id])
+            exp.update_user_exp(user_id, self.exp[user_id])
+            exp.update_user_level(user_id, self.levels[user_id])
+            if self.birthday.get(user_id):
+                birthday.update_birthday(user_id, self.birthday[user_id])
         await super().close()
 
 intents = discord.Intents.default()
@@ -79,15 +92,11 @@ intents.voice_states = True
 
 client = MyClient(intents=intents)
 
-# Импорт команд из других файлов
-from admin_commands import setup_admin_commands
-from user_commands import setup_user_commands
-import autosave
-
-setup_admin_commands(client)
-setup_user_commands(client)
+admin_commands.setup_admin_commands(client)
+user_commands.setup_user_commands(client)
 
 async def main():
+    admin_commands.setup_birthday_notification(client)
     await client.start(TOKEN)
     asyncio.create_task(autosave.main(client))
     print("Bot has started.")

@@ -3,8 +3,9 @@ import os
 import discord
 import subprocess
 from discord import app_commands
-import database
-import asyncio  # Добавляем этот импорт
+from database import database, exp, special_points, settings, birthday, stars
+import asyncio
+from datetime import datetime
 
 def setup_admin_commands(client):
     @client.tree.command(name="restart", description="Перезапуск бота", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
@@ -13,8 +14,6 @@ def setup_admin_commands(client):
             await interaction.response.send_message("Bot is restarting...")
             print(f"Restart command received. Restarting bot with PID {os.getpid()}...")
             subprocess.Popen([sys.executable, "restart_bot.py", str(os.getpid())])
-            await client.close()
-            os._exit(0)  # Завершаем процесс принудительно
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
@@ -48,6 +47,7 @@ def setup_admin_commands(client):
         if interaction.user.guild_permissions.administrator:
             excluded_channels = database.get_excluded_channels()
             excluded_roles = database.get_excluded_roles()
+            birthday_channel_id = settings.get_birthday_channel()
 
             channels = [interaction.guild.get_channel(channel_id) for channel_id in excluded_channels]
             roles = [interaction.guild.get_role(role_id) for role_id in excluded_roles]
@@ -55,7 +55,14 @@ def setup_admin_commands(client):
             channel_list = "\n".join([channel.name for channel in channels if channel is not None])
             role_list = "\n".join([role.name for role in roles if role is not None])
 
-            response = f"**Роли:**\n{role_list}\n\n**Каналы:**\n{channel_list}"
+            birthday_channel = interaction.guild.get_channel(birthday_channel_id)
+            birthday_channel_name = birthday_channel.name if birthday_channel else "Не установлен"
+
+            response = (
+                f"**Роли:**\n{role_list}\n\n"
+                f"**Каналы:**\n{channel_list}\n\n"
+                f"**Канал для поздравлений:**\n{birthday_channel_name}"
+            )
 
             await interaction.response.send_message(response, ephemeral=True)
         else:
@@ -82,18 +89,18 @@ def setup_admin_commands(client):
     async def ball(interaction: discord.Interaction, type: str, user: discord.Member, amount: int):
         if interaction.user.guild_permissions.administrator:
             user_id = user.id
-            current_points = database.get_special_points(user_id)
+            current_points = special_points.get_special_points(user_id)
 
             if type == "add":
                 new_points = current_points + amount
-                database.update_special_points(user_id, new_points)
+                special_points.update_special_points(user_id, new_points)
                 await interaction.response.send_message(f"Added {amount} special points to {user.mention}. They now have {new_points} special points.", ephemeral=True)
             elif type == "remove":
                 new_points = max(0, current_points - amount)
-                database.update_special_points(user_id, new_points)
+                special_points.update_special_points(user_id, new_points)
                 await interaction.response.send_message(f"Removed {amount} special points from {user.mention}. They now have {new_points} special points.", ephemeral=True)
             elif type == "set":
-                database.update_special_points(user_id, amount)
+                special_points.update_special_points(user_id, amount)
                 await interaction.response.send_message(f"Set {user.mention}'s special points to {amount}.", ephemeral=True)
             else:
                 await interaction.response.send_message("Invalid type. Please use 'add', 'remove', or 'set'.", ephemeral=True)
@@ -105,30 +112,30 @@ def setup_admin_commands(client):
     async def star(interaction: discord.Interaction, user: discord.Member, star: int):
         if interaction.user.guild_permissions.administrator:
             if 1 <= star <= 12:
-                database.update_star(user.id, star)
+                stars.update_star(user.id, star)
                 await interaction.response.send_message(f"Updated star for {user.mention} to {star}.", ephemeral=True)
             else:
                 await interaction.response.send_message("Invalid star number. Please choose a number between 1 and 12.", ephemeral=True)
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
-    @client.tree.command(name="hp", description="Установка даты рождения для пользователя", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
-    @app_commands.describe(user="Выберите участника", birthday="Дата рождения (в формате ГГГГ-ММ-ДД)")
-    async def hp(interaction: discord.Interaction, user: discord.Member, birthday: str):
-        if interaction.user.guild_permissions.administrator:
-            database.update_birthday(user.id, birthday)
-            await interaction.response.send_message(f"Updated birthday for {user.mention} to {birthday}.", ephemeral=True)
-        else:
-            await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
-
-    @client.tree.command(name="hp_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
     @app_commands.describe(channel="Выберите канал")
-    async def hp_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
         if interaction.user.guild_permissions.administrator:
-            database.update_birthday_channel(channel.id)
-            await interaction.response.send_message(f"Updated birthday channel to {channel.mention}.", ephemeral=True)
+            settings.update_birthday_channel(channel.id)
+            await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
         else:
-            await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
+            await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
+
+    @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    @app_commands.describe(channel="Выберите канал")
+    async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+        if interaction.user.guild_permissions.administrator:
+            settings.update_birthday_channel(channel.id)
+            await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
+        else:
+            await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
 
     @client.tree.command(name="xp", description="Управление опытом и уровнями", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
     @app_commands.describe(action="Выберите действие: op или level", method="Выберите метод: add, remove, set", user="Выберите участника", amount="Количество")
@@ -144,37 +151,45 @@ def setup_admin_commands(client):
         if interaction.user.guild_permissions.administrator:
             user_id = user.id
             if action == "op":
-                current_exp = database.get_user_exp(user_id)
+                current_exp = exp.get_user_exp(user_id)
                 if method == "add":
                     new_exp = current_exp + amount
                 elif method == "remove":
                     new_exp = max(0, current_exp - amount)
                 elif method == "set":
                     new_exp = amount
-                database.update_user_exp(user_id, new_exp)
+                exp.update_user_exp(user_id, new_exp)
                 await interaction.response.send_message(f"Updated experience for {user.mention} to {new_exp}.", ephemeral=True)
             elif action == "level":
-                current_level = database.get_user_level(user_id)
+                current_level = exp.get_user_level(user_id)
                 if method == "add":
                     new_level = current_level + amount
                 elif method == "remove":
                     new_level = max(0, current_level - amount)
                 elif method == "set":
                     new_level = amount
-                database.update_user_level(user_id, new_level)
+                exp.update_user_level(user_id, new_level)
                 await interaction.response.send_message(f"Updated level for {user.mention} to {new_level}.", ephemeral=True)
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
 def setup_user_commands(client):
-    # Здесь должен быть вызов функции настройки команд для пользователей
     pass
 
 def setup_birthday_notification(client):
     async def birthday_check():
         await client.wait_until_ready()
         while not client.is_closed():
-            # Вставьте здесь код проверки дня рождения
-            await asyncio.sleep(3600)  # Проверять каждый час
+            today = datetime.now().strftime('%d-%m')
+            users_with_birthday_today = birthday.get_users_with_birthday(today)
+            if users_with_birthday_today:
+                channel_id = settings.get_birthday_channel()
+                channel = client.get_channel(channel_id)
+                if channel:
+                    for user_id in users_with_birthday_today:
+                        user = client.get_user(user_id)
+                        if user:
+                            await channel.send(f"Сегодня у {user.mention} день рождения! Давайте поздравим и пожелаем всего наилучшего!")
+            await asyncio.sleep(86400)  # Проверять каждый день
 
-    client.loop.create_task(birthday_check())
+    asyncio.create_task(birthday_check())

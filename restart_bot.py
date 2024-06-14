@@ -15,6 +15,8 @@ def restart_bot(pid):
     except psutil.NoSuchProcess:
         print(f"Process with PID {pid} does not exist.")
 
+    # Ожидаем завершения старого процесса перед запуском нового
+    time.sleep(1)
     subprocess.Popen([sys.executable, "bot.py"])
     print("Bot restarted.")
 
