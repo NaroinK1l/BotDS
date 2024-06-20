@@ -119,23 +119,23 @@ def setup_admin_commands(client):
         else:
             await interaction.response.send_message("You do not have the necessary permissions to use this command.", ephemeral=True)
 
-    @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
-    @app_commands.describe(channel="Выберите канал")
-    async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-        if interaction.user.guild_permissions.administrator:
-            settings.update_birthday_channel(channel.id)
-            await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
-        else:
-            await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
+    # @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    # @app_commands.describe(channel="Выберите канал")
+    # async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    #     if interaction.user.guild_permissions.administrator:
+    #         settings.update_birthday_channel(channel.id)
+    #         await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
+    #     else:
+    #         await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
 
-    @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
-    @app_commands.describe(channel="Выберите канал")
-    async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
-        if interaction.user.guild_permissions.administrator:
-            settings.update_birthday_channel(channel.id)
-            await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
-        else:
-            await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
+    # @client.tree.command(name="hb_channel", description="Установка канала для поздравлений с днем рождения", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
+    # @app_commands.describe(channel="Выберите канал")
+    # async def hb_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    #     if interaction.user.guild_permissions.administrator:
+    #         settings.update_birthday_channel(channel.id)
+    #         await interaction.response.send_message(f"Канал для поздравлений с днем рождения установлен на {channel.mention}.", ephemeral=True)
+    #     else:
+    #         await interaction.response.send_message("У вас нет прав для использования этой команды.", ephemeral=True)
 
     @client.tree.command(name="xp", description="Управление опытом и уровнями", guild=discord.Object(id=int(os.getenv('GUILD_ID'))))
     @app_commands.describe(action="Выберите действие: op или level", method="Выберите метод: add, remove, set", user="Выберите участника", amount="Количество")
