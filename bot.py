@@ -41,7 +41,7 @@ class MyClient(discord.Client):
         self.exp[user_id] = self.exp.get(user_id, 0) + 10
         self.check_level_up(user_id)
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=30)
     async def add_exp_voice(self):
         for guild in self.guilds:
             for channel in guild.voice_channels:
@@ -52,7 +52,7 @@ class MyClient(discord.Client):
                         continue
 
                     user_id = member.id
-                    self.exp[user_id] = self.exp.get(user_id, 0) + 20  # Изменено с 5 на 20
+                    self.exp[user_id] = self.exp.get(user_id, 0) + 85  # Изменено с 5 на 20
                     self.check_level_up(user_id)
 
     def check_level_up(self, user_id):
