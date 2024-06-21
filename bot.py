@@ -52,7 +52,7 @@ class MyClient(discord.Client):
                         continue
 
                     user_id = member.id
-                    self.exp[user_id] = self.exp.get(user_id, 0) + 5
+                    self.exp[user_id] = self.exp.get(user_id, 0) + 20  # Изменено с 5 на 20
                     self.check_level_up(user_id)
 
     def check_level_up(self, user_id):
@@ -60,7 +60,7 @@ class MyClient(discord.Client):
             self.exp[user_id] -= 300
             self.levels[user_id] = self.levels.get(user_id, 0) + 1
             special_points = database.get_special_points(user_id)
-            special_points += 40
+            special_points += 35  # Изменено с 40 на 35
             database.update_special_points(user_id, special_points)
         database.update_user_exp(user_id, self.exp[user_id])
         database.update_user_level(user_id, self.levels[user_id])
